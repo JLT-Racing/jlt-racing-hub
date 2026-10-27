@@ -3,3 +3,5 @@
 .jlt-emblem{width:76px;height:76px;object-fit:contain;background:#090909;border:1px solid #414141;padding:7px;filter:drop-shadow(0 0 7px #ffdc0050)}.logo{align-items:flex-start}.race-hero:after{content:'';right:4%;top:9%;width:210px;height:240px;background:url('assets/jlt-mark.svg') center/contain no-repeat;opacity:.16;transform:none}@media(max-width:780px){.jlt-emblem{width:54px;height:54px}.race-hero:after{width:130px;height:150px;right:-4%;top:22%}}
 
 .group-link{display:block;color:inherit;text-decoration:none}.group-link:hover{text-decoration:none}.group-link .card{height:100%;transition:transform .15s,border-color .15s}.group-link:hover .card{transform:translateY(-3px);border-color:var(--gold)}#driver-results{margin-top:20px}#group-detail .tablebox a{font-weight:700}
+
+.advance{color:#b5ef8a;font-weight:800}.bubble{color:#ffd25c;font-weight:800}.race-picker{display:flex;flex-wrap:wrap;gap:9px;margin:20px 0}.race-button{border:1px solid #6a6225;background:#1b1c16;color:#e4d57a;padding:11px 19px}.race-button.selected,.race-button:hover{background:#ffdc00;color:#111;border-color:#ffdc00}.tablebox td a{font-weight:700}
