@@ -1,0 +1,4 @@
+{
+  "description": "Organizer-verified race IDs mapped to simulated groups for pipeline testing. Replace simulated group mapping with official assignments before publishing real standings.",
+  "races": []
+}
