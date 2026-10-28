@@ -10,15 +10,17 @@ test('official preview awards roster-sized points and zero for absences',()=>{
  assert.equal(result.rows.find(x=>x.driverId===3).points,0);
  assert.equal(result.outsiders,1);
 });
-test('crashes rank below finishers, sorted by completion',()=>{
+test('crashes rank below finishers, ordered by Torn positions',()=>{
  const result=scoreOfficialRace({id:11,status:'finished',results:[r(1,1,true,60),r(2,2),r(3,3,true,90)]},group,'Qualification 1');
  assert.equal(result.rows.find(x=>x.driverId===2).points,4);
  assert.equal(result.rows.find(x=>x.driverId===3).points,3);
  assert.equal(result.rows.find(x=>x.driverId===1).points,2);
 });
-test('ambiguous crash completion is blocked',()=>{
- assert.throws(()=>scoreOfficialRace({id:12,status:'finished',results:[r(1,1,true)]},group,'Qualification 1'),/completion percentage missing/);
- assert.throws(()=>scoreOfficialRace({id:12,status:'finished',results:[r(1,1,true,50),r(2,2,true,50)]},group,'Qualification 1'),/Tied crash/);
+test('crashes without completion percentage receive last-place points',()=>{
+ const result=scoreOfficialRace({id:12,status:'finished',results:[r(1,1,true),r(2,2),r(3,3,true)]},group,'Qualification 1');
+ assert.equal(result.rows.find(x=>x.driverId===2).points,4);
+ assert.equal(result.rows.find(x=>x.driverId===1).points,3);
+ assert.equal(result.rows.find(x=>x.driverId===3).points,2);
 });
 test('unverified rosters and unfinished races are blocked',()=>{
  assert.throws(()=>scoreOfficialRace({id:12,status:'finished',results:[]},{...group,official:false},'Qualification 1'),/Verified official/);
