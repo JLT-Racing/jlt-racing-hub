@@ -1,0 +1,30 @@
+import {scoreOfficialRace} from './official-scoring.mjs';
+import {saveOfficialImport,readOfficialImports} from './official-imports.mjs';
+import {reviewOfficialRace,officialReviewQueue,approvedOfficialImports} from './official-approvals.mjs';
+import {calculateStandings} from './standings.mjs';
+const checks=[];
+function check(name,ok){checks.push({name,passed:!!ok});if(!ok)throw Error('Rehearsal failed: '+name)}
+const group={id:'L1-REHEARSAL',official:true,simulated:false,drivers:[{id:901001,name:'Alpha'},{id:901002,name:'Beta'},{id:901003,name:'Gamma'},{id:901004,name:'Delta'}]};
+const rosterSha='a'.repeat(64);
+const result=(id,position,crashed=false,completion_percentage=undefined,race_time=100)=>({driver_id:id,position,has_crashed:crashed,completion_percentage,race_time});
+const first=scoreOfficialRace({id:99000101,status:'finished',results:[result(901001,1),result(901002,2),result(901003,3,true,80),result(999999,4)]},group,'Qualification 1');
+check('Preview roster-size scoring and outsiders',first.rows.find(x=>x.driverId===901001).points===4&&first.outsiders===1&&first.rows.find(x=>x.driverId===901004).points===0);
+check('First import saved pending',saveOfficialImport(first,rosterSha).status==='pending');
+check('Stored exactly one import',readOfficialImports().length===1);
+let duplicateBlocked=false;try{saveOfficialImport(first,rosterSha)}catch{duplicateBlocked=true}
+check('Duplicate race rejected',duplicateBlocked);
+check('Review queue starts pending',officialReviewQueue(rosterSha)[0].status==='pending');
+check('Pending import excluded from standings',calculateStandings(group,approvedOfficialImports(rosterSha)).importedRaces===0);
+check('Approval recorded',reviewOfficialRace(first.raceId,'approve',rosterSha).status==='approved');
+check('Approved race counted',calculateStandings(group,approvedOfficialImports(rosterSha)).importedRaces===1);
+const second=scoreOfficialRace({id:99000102,status:'finished',results:[result(901002,1),result(901003,2),result(901004,3)]},group,'Qualification 2');
+saveOfficialImport(second,rosterSha);
+check('Second race pending is excluded',calculateStandings(group,approvedOfficialImports(rosterSha)).importedRaces===1);
+reviewOfficialRace(second.raceId,'approve',rosterSha);
+const standings=calculateStandings(group,approvedOfficialImports(rosterSha));
+check('Two approved races accumulated',standings.importedRaces===2);
+check('Beta leads with seven points',standings.standings[0].driverId===901002&&standings.standings[0].points===7);
+check('Missing driver receives zero in second race',standings.standings.find(x=>x.driverId===901001).points===4);
+check('Revoke removes second race from standings',reviewOfficialRace(second.raceId,'revoke',rosterSha).status==='pending'&&calculateStandings(group,approvedOfficialImports(rosterSha)).importedRaces===1);
+check('First approval remains intact',officialReviewQueue(rosterSha).find(x=>x.raceId===first.raceId).status==='approved');
+process.stdout.write(JSON.stringify({passed:checks.every(x=>x.passed),checks,standings:calculateStandings(group,approvedOfficialImports(rosterSha)).standings}));
