@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {preview} from './imports.mjs';
 import {calculateStandings} from './standings.mjs';
-import {validateOfficialGroups,qualificationFormat,raceoffRoster} from './rules.mjs';
+import {validateOfficialGroups,qualificationFormat,raceoffRoster,validateImportSlot,championshipQualifiers} from './rules.mjs';
 const group={id:'L1-G01',simulated:true,drivers:[{id:1,name:'A'},{id:2,name:'B'},{id:3,name:'C'},{id:4,name:'D'}]};
 const row=(driverId,points,entered=true,crashed=false,time=10)=>({driverId,points,entered,crashed,time});
 const imp=(raceId,slot,rows)=>({raceId,groupId:group.id,slot,simulated:true,registered:4,rows});
@@ -34,4 +34,25 @@ test('qualification formats enforce 6 versus 4 plus 2',()=>{
 test('race-off roster requires four qualification races per group',()=>{
  const groups=[{id:'L1-A',league:1,drivers:Array.from({length:5},(_,i)=>({id:i+1}))},{id:'L1-B',league:1,drivers:Array.from({length:5},(_,i)=>({id:i+6}))}];
  assert.throws(()=>raceoffRoster(groups,{},1),/Four verified/);
+});
+
+test('multi-group regular imports reject qualification rounds five and six',()=>{
+ const gs=[{id:'L1-A',league:1},{id:'L1-B',league:1}];
+ assert.equal(validateImportSlot(gs,'L1-A','Qualification 4').stage,'qualification');
+ assert.throws(()=>validateImportSlot(gs,'L1-A','Qualification 5'),/not a regular qualification/);
+ assert.throws(()=>validateImportSlot(gs,'L1-A','Race-off 1'),/not a regular qualification/);
+});
+test('single-group league permits all six qualification rounds',()=>{
+ const gs=[{id:'L0-A',league:0}];
+ assert.equal(validateImportSlot(gs,'L0-A','Qualification 6').slot,'Qualification 6');
+});
+test('championship selection requires complete qualifying phase',()=>{
+ const gs=[{id:'L0-A',league:0}];
+ assert.throws(()=>championshipQualifiers(gs,{},0),/Six qualification/);
+ const standings={stage:'qualification',importedRaces:6,standings:[1,2,3,4].map((id,i)=>({driverId:id,name:'R'+id,rank:i+1}))};
+ assert.deepEqual(championshipQualifiers(gs,{'L0-A':standings},0).drivers.map(x=>x.id),[1,2,3]);
+});
+test('multi-group championship selection requires both race-offs',()=>{
+ const gs=[{id:'L1-A',league:1},{id:'L1-B',league:1}];
+ assert.throws(()=>championshipQualifiers(gs,{},1),/Two verified pooled race-offs/);
 });
