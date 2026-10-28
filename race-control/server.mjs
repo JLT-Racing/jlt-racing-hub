@@ -176,7 +176,7 @@ http.createServer(async(req,res)=>{try{
   const roster=loadOfficialRoster();if(!roster)return json(res,423,{error:'Official roster not active'});
   const origin=req.headers.origin;if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid origin'});
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return json(res,413,{error:'Too large'})}
-  try{const data=JSON.parse(raw);if(!Number.isSafeInteger(data.raceId)||data.raceId<=0)throw Error('Invalid race ID');return json(res,200,{review:reviewOfficialRace(data.raceId,data.decision,roster.sha256)})}catch(e){return json(res,409,{error:e.message})}
+  try{const data=JSON.parse(raw);if(!Number.isSafeInteger(data.raceId)||data.raceId<=0)throw Error('Invalid race ID');const item=readOfficialImports().find(x=>x.raceId===data.raceId&&x.rosterSha===roster.sha256);if(!item)throw Error('Unknown official import');if(data.decision==='approve'&&item.stageRosterDigest){const stage=item.slot.startsWith('Race-off')?'raceoff':'championship';const league=Number(item.groupId.match(/^L([0-6])-/)?.[1]);const proposal=proposedStageRoster(groups,approvedOfficialImports(roster.sha256),league,stage);verifiedStageRoster(item.groupId,roster.sha256,proposal);if(item.stageRosterDigest!==stageDigest(proposal,roster.sha256))throw Error('Stage roster changed since import')}return json(res,200,{review:reviewOfficialRace(data.raceId,data.decision,roster.sha256)})}catch(e){return json(res,409,{error:e.message})}
  }
  if(url.pathname==='/api/official-preview'&&req.method==='POST'){
   if(!loadOfficialRoster())return json(res,423,{error:'Official roster not activated'});
