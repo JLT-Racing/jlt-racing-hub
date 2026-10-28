@@ -1,3 +1,4 @@
+import {writeFileSync,readFileSync as readStorageFile} from 'node:fs';
 import {preview,saveImport,readImports} from './imports.mjs';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
@@ -18,6 +19,12 @@ http.createServer(async(req,res)=>{try{
  if(url.pathname==='/'){res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(html);return}
  if(!url.pathname.startsWith('/api/'))return json(res,404,{error:'Not found'});
  if(url.pathname==='/api/groups')return json(res,200,{groups,simulation:true});
+ if(url.pathname==='/api/test-storage'&&req.method==='POST'){
+  const path='/var/lib/jlt-race-control/storage-test.json';
+  const record={kind:'STORAGE_TEST_ONLY',timestamp:new Date().toISOString()};
+  try{writeFileSync(path,JSON.stringify(record),{mode:0o600});const check=JSON.parse(readStorageFile(path,'utf8'));if(check.kind!==record.kind||check.timestamp!==record.timestamp)throw Error('Read-back mismatch');return json(res,200,{ok:true,test:check})}
+  catch(e){console.error('Storage test failed:',e.message);return json(res,500,{error:'Storage test failed; check service permissions'})}
+ }
  if(url.pathname==='/api/imports'&&req.method==='GET')return json(res,200,{imports:readImports()});
  if(url.pathname==='/api/import'&&req.method==='POST'){
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)return json(res,413,{error:'Request too large'})}
