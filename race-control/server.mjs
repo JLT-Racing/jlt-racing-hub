@@ -38,6 +38,20 @@ http.createServer(async(req,res)=>{try{
    return json(res,200,{ok:true,record:{kind:saved.kind,raceId:saved.raceId,groupId:saved.groupId,rows:saved.rows.length},cleanedUp:true,realImports:readImports().length});
   }catch(e){try{unlinkSync(path)}catch{}console.error('Import E2E test failed:',e.message);return json(res,500,{error:'Import test failed: '+e.message})}
  }
+ if(url.pathname==='/api/trigger-test-publish'&&req.method==='POST'){
+  // Dispatches only the locked-down empty TEST feed workflow. No private imports
+  // or steward keys are transferred to GitHub.
+  const token=process.env.JLT_GITHUB_TOKEN;
+  if(!token)return json(res,503,{error:'GitHub publishing token not configured on Oracle'});
+  const origin=req.headers.origin;
+  if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid request origin'});
+  const target='https://api.github.com/repos/JLT-Racing/jlt-racing-hub/actions/workflows/publish-results.yml/dispatches';
+  let response;
+  try{response=await fetch(target,{method:'POST',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'jlt-race-control','Content-Type':'application/json'},body:JSON.stringify({ref:'main'}),signal:AbortSignal.timeout(12000)})}
+  catch(e){return json(res,502,{error:'Could not contact GitHub'})}
+  if(response.status!==204){console.error('GitHub dispatch HTTP status:',response.status);return json(res,502,{error:'GitHub rejected workflow dispatch (HTTP '+response.status+'). Check token permissions.'})}
+  return json(res,202,{queued:true,mode:'test',message:'GitHub test publication workflow queued. No race data transferred.',actionsUrl:'https://github.com/JLT-Racing/jlt-racing-hub/actions/workflows/publish-results.yml'});
+ }
  if(url.pathname==='/api/publication-preview'&&req.method==='GET'){
   const imports=readImports();
   const races=imports.map(({raceId,groupId,slot,matched,registered,rows})=>({raceId,groupId,slot,matched,registered,rows}));
