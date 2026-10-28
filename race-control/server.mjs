@@ -21,6 +21,27 @@ http.createServer(async(req,res)=>{try{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname==='/'){res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(html);return}
  if(!url.pathname.startsWith('/api/'))return json(res,404,{error:'Not found'});
+ if(url.pathname==='/api/steward-races'&&req.method==='GET'){
+  const groupId=url.searchParams.get('group');
+  let assigned;try{assigned=resolveSteward(groupId,groups)}catch(e){return json(res,400,{error:e.message})}
+  try{
+   const response=await fetch('https://api.torn.com/v2/user/races',{headers:{Authorization:'ApiKey '+assigned.key},signal:AbortSignal.timeout(12000)});
+   const data=await response.json();
+   if(!response.ok||data.error)return json(res,502,{error:'Assigned steward key could not retrieve races: '+(data.error?.error||'HTTP '+response.status)});
+   return json(res,200,{races:Array.isArray(data.races)?data.races:[],steward:assigned.steward,groupId});
+  }catch(e){return json(res,502,{error:'Unable to fetch steward races from Torn'})}
+ }
+ if(url.pathname==='/api/steward-race'&&req.method==='GET'){
+  const groupId=url.searchParams.get('group'),raceId=url.searchParams.get('race');
+  if(!/^\d+$/.test(raceId||''))return json(res,400,{error:'Invalid race ID'});
+  let assigned;try{assigned=resolveSteward(groupId,groups)}catch(e){return json(res,400,{error:e.message})}
+  try{
+   const response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+assigned.key},signal:AbortSignal.timeout(12000)});
+   const data=await response.json();
+   if(!response.ok||data.error||!data.race)return json(res,502,{error:'Assigned steward key could not retrieve this race'});
+   return json(res,200,{race:data.race,steward:assigned.steward,groupId});
+  }catch(e){return json(res,502,{error:'Unable to fetch steward race from Torn'})}
+ }
  if(url.pathname==='/api/stewards'&&req.method==='GET')return json(res,200,{stewards:listStewards()});
  if(url.pathname==='/api/stewards'&&req.method==='POST'){
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4000)return json(res,413,{error:'Request too large'})}
@@ -88,7 +109,9 @@ http.createServer(async(req,res)=>{try{
   const {raceId,groupId,slot,confirm}=payload||{};
   if(!Number.isSafeInteger(raceId)||raceId<=0)return json(res,400,{error:'Invalid race ID'});
   const group=groups.find(g=>g.id===groupId);if(!group)return json(res,400,{error:'Unknown group'});
-  const key=req.headers['x-torn-key'];if(typeof key!=='string'||!key||key.length>200)return json(res,400,{error:'Steward key required'});
+  let key=req.headers['x-torn-key'];
+  if(payload.useSavedKey===true){try{key=resolveSteward(groupId,groups).key}catch(e){return json(res,400,{error:e.message})}}
+  if(typeof key!=='string'||!key||key.length>200)return json(res,400,{error:'Steward key required'});
   const response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+key},signal:AbortSignal.timeout(12000)});
   const data=await response.json();if(!response.ok||data.error||!data.race)return json(res,502,{error:'Torn API rejected race'});
   let item;try{item=preview(data.race,group,slot)}catch(e){return json(res,400,{error:e.message})}
