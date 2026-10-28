@@ -1,3 +1,4 @@
+import {cleanupPreview,archiveTestData} from './cleanup.mjs';
 import {queue,review,publicationReadiness} from './approvals.mjs';
 import {listStewards,saveSteward,deleteSteward,resolveSteward} from './stewards.mjs';
 import {runScoringRehearsal} from './rehearsal.mjs';
@@ -86,6 +87,15 @@ http.createServer(async(req,res)=>{try{
   catch(e){return json(res,502,{error:'Could not contact GitHub'})}
   if(response.status!==204){console.error('GitHub dispatch HTTP status:',response.status);return json(res,502,{error:'GitHub rejected workflow dispatch (HTTP '+response.status+'). Check token permissions.'})}
   return json(res,202,{queued:true,mode:'test',message:'GitHub test publication workflow queued. No race data transferred.',actionsUrl:'https://github.com/JLT-Racing/jlt-racing-hub/actions/workflows/publish-results.yml'});
+ }
+ if(url.pathname==='/api/test-cleanup-preview'&&req.method==='GET')return json(res,200,cleanupPreview());
+ if(url.pathname==='/api/archive-test-data'&&req.method==='POST'){
+  const origin=req.headers.origin;
+  if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid request origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>500)return json(res,413,{error:'Request too large'})}
+  let data;try{data=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  try{return json(res,200,archiveTestData(data.confirmation))}
+  catch(e){return json(res,409,{error:e.message})}
  }
  if(url.pathname==='/api/review-queue'&&req.method==='GET')return json(res,200,{items:queue(),readiness:publicationReadiness()});
  if(url.pathname==='/api/review'&&req.method==='POST'){
