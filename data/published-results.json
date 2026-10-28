@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "mode": "test",
+  "publishedAt": "2026-10-28T00:00:00Z",
+  "description": "Publishing pipeline fixture only. No actual race results or official group assignments.",
+  "groups": [],
+  "races": []
+}
