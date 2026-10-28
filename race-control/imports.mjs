@@ -1,6 +1,6 @@
 import {readFileSync,writeFileSync,mkdirSync,renameSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
-const store=resolve(process.env.JLT_IMPORT_STORE||'/home/ubuntu/jlt-race-imports/imports.json');
+const store=resolve(process.env.JLT_IMPORT_STORE||'/var/lib/jlt-race-control/imports.json');
 const id=x=>String(x);
 export function preview(race,group,slot){
  if(!group?.simulated)throw Error('Preview requires explicitly simulated group');
