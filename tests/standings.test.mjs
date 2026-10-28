@@ -22,3 +22,12 @@ test('ties favor entered races then fewer crashes',()=>{
 test('rejects malformed snapshots',()=>{
  assert.throws(()=>calculateStandings(group,[race(1,'Qualification 1',[row(1,3)])]),/Incomplete/);
 });
+
+test('all-zero standings share first place until races are imported',()=>{
+ const d=calculateStandings(group,[]);
+ assert.deepEqual(d.standings.map(x=>x.rank),[1,1,1]);
+});
+test('fully tied racers share a rank',()=>{
+ const d=calculateStandings(group,[race(3,'Qualification 1',[row(1,2,true,false,10),row(2,2,true,false,10),row(3,0,false)])]);
+ assert.deepEqual(d.standings.map(x=>x.rank),[1,1,3]);
+});
