@@ -6,7 +6,20 @@ export function preview(race,group,slot){
  if(!group?.simulated)throw Error('Preview requires explicitly simulated group');
  if(race?.status!=='finished'||!Array.isArray(race.results))throw Error('Race is not finished');
  if(!slot||!/^(Qualification [1-6]|Race-off [12]|Championship)$/.test(slot))throw Error('Invalid race slot');
+ if(!Number.isSafeInteger(Number(race.id))||Number(race.id)<=0)throw Error('Invalid race ID');
  const roster=group.drivers||[],size=roster.length,eligible=new Map(roster.map(x=>[id(x.id),x]));
+ if(!size||eligible.size!==size)throw Error('Empty or duplicate group roster');
+ if(race.results.length>500)throw Error('Unexpected race size');
+ const allDrivers=new Set();
+ for(const r of race.results){
+  if(!Number.isSafeInteger(Number(r.driver_id))||Number(r.driver_id)<=0)throw Error('Invalid racer ID');
+  if(allDrivers.has(id(r.driver_id)))throw Error('Duplicate racer in official race results');
+  allDrivers.add(id(r.driver_id));
+  if(!Number.isInteger(r.position)||r.position<1)throw Error('Invalid official position');
+  if(typeof r.has_crashed!=='boolean')throw Error('Invalid crash flag');
+ }
+ if(new Set(race.results.map(r=>r.position)).size!==race.results.length)throw Error('Duplicate official positions');
+
  const entries=new Map();
  for(const r of race.results){
   const driver=id(r.driver_id);
