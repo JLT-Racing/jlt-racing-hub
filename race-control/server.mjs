@@ -1,3 +1,5 @@
+import {proposedStageRoster} from './stage-proposals.mjs';
+import {stageDigest,confirmStageRoster,verifiedStageRoster,readStageRosters} from './stage-rosters.mjs';
 import {previewTournamentStages} from './tournament-stages.mjs';
 import {previewAdvancement} from './advancement.mjs';
 import {runOfficialWorkflowRehearsal} from './official-workflow-rehearsal.mjs';
@@ -86,6 +88,56 @@ http.createServer(async(req,res)=>{try{
    const result=activateOfficialRoster(payload,readImports());
    return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
   }catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/stage-roster-proposal'&&req.method==='GET'){
+  const root=loadOfficialRoster();if(!root)return json(res,423,{error:'Official roster not active'});
+  const league=Number(url.searchParams.get('league')),stage=url.searchParams.get('stage');
+  if(!Number.isInteger(league)||league<0||league>6)return json(res,400,{error:'Invalid league'});
+  try{
+   const proposal=proposedStageRoster(groups,approvedOfficialImports(root.sha256),league,stage);
+   const digest=stageDigest(proposal,root.sha256);
+   const confirmed=readStageRosters().some(x=>x.id===proposal.id&&x.rootSha===root.sha256&&x.digest===digest);
+   return json(res,200,{proposal,digest,confirmed,publicationLocked:true});
+  }catch(e){return json(res,422,{error:e.message})}
+ }
+ if(url.pathname==='/api/stage-roster-confirm'&&req.method==='POST'){
+  const root=loadOfficialRoster();if(!root)return json(res,423,{error:'Official roster not active'});
+  const origin=req.headers.origin;if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>3000)return json(res,413,{error:'Request too large'})}
+  try{
+   const data=JSON.parse(raw),league=Number(data.league);
+   if(!Number.isInteger(league)||league<0||league>6)throw Error('Invalid league');
+   const proposal=proposedStageRoster(groups,approvedOfficialImports(root.sha256),league,data.stage);
+   return json(res,200,confirmStageRoster({roster:proposal,rootSha:root.sha256,expectedDigest:data.digest,confirmation:data.confirmation,source:data.source},proposal));
+  }catch(e){return json(res,422,{error:e.message,publicationLocked:true})}
+ }
+ if(url.pathname==='/api/stage-race-preview'&&req.method==='POST'){
+  const root=loadOfficialRoster();if(!root)return json(res,423,{error:'Official roster not active'});
+  const origin=req.headers.origin;if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000)return json(res,413,{error:'Request too large'})}
+  let data;try{data=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  const league=Number(data.league),raceId=data.raceId,stage=data.stage,slot=data.slot;
+  if(!Number.isInteger(league)||league<0||league>6||!Number.isSafeInteger(raceId)||raceId<=0)return json(res,400,{error:'Invalid league or race ID'});
+  if(stage==='raceoff'&&!/^Race-off [12]$/.test(slot)||stage==='championship'&&!/^Championship [1-7]$/.test(slot)||!['raceoff','championship'].includes(stage))return json(res,400,{error:'Invalid stage slot'});
+  let proposal,group;
+  try{proposal=proposedStageRoster(groups,approvedOfficialImports(root.sha256),league,stage);group=verifiedStageRoster(proposal.id,root.sha256,proposal)}
+  catch(e){return json(res,423,{error:e.message})}
+  let assigned;
+  try{assigned=resolveSteward(groups.find(g=>g.league===league).id,groups)}
+  catch(e){return json(res,400,{error:'Assign exactly one league or group steward key: '+e.message})}
+  let response,dataFromTorn;
+  try{response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+assigned.key},signal:AbortSignal.timeout(12000)});dataFromTorn=await response.json()}
+  catch(e){return json(res,502,{error:'Torn race fetch failed'})}
+  if(!response.ok||dataFromTorn.error||!dataFromTorn.race)return json(res,502,{error:'Torn API rejected race'});
+  try{
+   if(Number(dataFromTorn.race.id)!==raceId)throw Error('Torn returned wrong race');
+   const item=scoreOfficialRace(dataFromTorn.race,group,slot);
+   if(data.confirm==='SAVE VERIFIED PRIVATE IMPORT'){
+    if(item.matched<1)throw Error('No eligible racers');
+    return json(res,200,{...saveOfficialImport({...item,stageRosterDigest:stageDigest(proposal,root.sha256)},root.sha256),preview:item,publicationLocked:true});
+   }
+   return json(res,200,{preview:item,saved:false,publicationLocked:true});
+  }catch(e){return json(res,422,{error:e.message})}
  }
  if(url.pathname==='/api/tournament-stages'&&req.method==='GET'){
   const roster=loadOfficialRoster();if(!roster)return json(res,423,{error:'Official roster not activated'});
