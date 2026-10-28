@@ -42,6 +42,6 @@ export function calculateStandings(group,imports,stage='qualification'){
   }
  }
  const standings=[...byId.values()].sort((a,b)=>b.points-a.points||b.entered-a.entered||a.crashes-b.crashes||a.totalTime-b.totalTime||key(a.driverId).localeCompare(key(b.driverId)));
- standings.forEach((r,i)=>{r.rank=i+1});
+ standings.forEach((r,i)=>{const prev=standings[i-1];r.rank=prev&&r.points===prev.points&&r.entered===prev.entered&&r.crashes===prev.crashes&&r.totalTime===prev.totalTime?prev.rank:i+1;r.tied=i>0&&r.rank===prev.rank});
  return {groupId:group.id,stage,simulation:group.simulated===true,importedRaces:ordered.length,slots:ordered.map(r=>r.slot),registered:roster.length,standings};
 }
