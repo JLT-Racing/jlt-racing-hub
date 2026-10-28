@@ -4,7 +4,7 @@ const id=x=>String(x);
 export function scoreOfficialRace(race,group,slot){
  if(!group?.official||group.simulated===true)throw Error('Verified official group required');
  if(race?.status!=='finished'||!Array.isArray(race.results))throw Error('Finished race results required');
- if(!/^Qualification [1-6]$/.test(slot))throw Error('Only regular qualification supported by this scorer');
+ if(!/^(Qualification [1-6]|Race-off [12]|Championship [1-7])$/.test(slot))throw Error('Unsupported official race slot');
  const roster=group.drivers;
  if(!Array.isArray(roster)||!roster.length)throw Error('Empty roster');
  const registered=new Map(roster.map(d=>[id(d.id),d]));
