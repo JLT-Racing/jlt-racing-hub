@@ -1,3 +1,5 @@
+import {readOfficialImports,saveOfficialImport} from './official-imports.mjs';
+import {officialReviewQueue,reviewOfficialRace,approvedOfficialImports} from './official-approvals.mjs';
 import {scoreOfficialRace} from './official-scoring.mjs';
 import {loadOfficialRoster,activateOfficialRoster,rosterDigest} from './official-roster.mjs';
 import {validateOfficialGroups,qualificationFormat,validateImportSlot,championshipQualifiers,raceoffRoster} from './rules.mjs';
@@ -81,6 +83,31 @@ http.createServer(async(req,res)=>{try{
    const result=activateOfficialRoster(payload,readImports());
    return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
   }catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/official-imports'&&req.method==='GET'){
+  const roster=loadOfficialRoster();
+  return json(res,200,{imports:roster?readOfficialImports().filter(x=>x.rosterSha===roster.sha256):[],publicationLocked:true});
+ }
+ if(url.pathname==='/api/official-review-queue'&&req.method==='GET'){
+  const roster=loadOfficialRoster();
+  return json(res,200,{items:roster?officialReviewQueue(roster.sha256):[],publicationLocked:true});
+ }
+ if(url.pathname==='/api/official-standings'&&req.method==='GET'){
+  const roster=loadOfficialRoster();
+  if(!roster)return json(res,423,{error:'Official roster not active'});
+  const group=groups.find(g=>g.id===url.searchParams.get('group'));
+  if(!group)return json(res,400,{error:'Unknown group'});
+  try{
+   const imports=approvedOfficialImports(roster.sha256).map(x=>({...x,simulated:true}));
+   const result=calculateStandings({...group,simulated:false},imports,'qualification');
+   return json(res,200,{...result,simulation:false,approvedOnly:true,publicationLocked:true});
+  }catch(e){return json(res,422,{error:e.message})}
+ }
+ if(url.pathname==='/api/official-review'&&req.method==='POST'){
+  const roster=loadOfficialRoster();if(!roster)return json(res,423,{error:'Official roster not active'});
+  const origin=req.headers.origin;if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return json(res,413,{error:'Too large'})}
+  try{const data=JSON.parse(raw);if(!Number.isSafeInteger(data.raceId)||data.raceId<=0)throw Error('Invalid race ID');return json(res,200,{review:reviewOfficialRace(data.raceId,data.decision,roster.sha256)})}catch(e){return json(res,409,{error:e.message})}
  }
  if(url.pathname==='/api/official-preview'&&req.method==='POST'){
   if(!loadOfficialRoster())return json(res,423,{error:'Official roster not activated'});
