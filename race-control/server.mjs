@@ -1,3 +1,4 @@
+import {validateOfficialGroups,qualificationFormat,validateImportSlot,championshipQualifiers,raceoffRoster} from './rules.mjs';
 import {cleanupPreview,archiveTestData} from './cleanup.mjs';
 import {queue,review,publicationReadiness} from './approvals.mjs';
 import {listStewards,saveSteward,deleteSteward,resolveSteward} from './stewards.mjs';
@@ -55,6 +56,19 @@ http.createServer(async(req,res)=>{try{
   try{const {id}=JSON.parse(raw);deleteSteward(id);return json(res,200,{deleted:true})}catch(e){return json(res,400,{error:e.message})}
  }
  if(url.pathname==='/api/groups')return json(res,200,{groups,simulation:true});
+ if(url.pathname==='/api/official-readiness'&&req.method==='GET'){
+  const leagues=[...new Set(groups.map(g=>g.league))].sort((a,b)=>a-b);
+  return json(res,200,{mode:'simulation',publicationLocked:true,officialRostersLoaded:false,leagues:leagues.map(league=>({league,groupCount:groups.filter(g=>g.league===league).length,format:qualificationFormat(groups,league)})),message:'Official roster activation requires organizer-verified assignments. Simulated group assignments cannot be promoted.'});
+ }
+ if(url.pathname==='/api/validate-roster'&&req.method==='POST'){
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000000)return json(res,413,{error:'Roster too large'})}
+  let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  try{
+   const report=validateOfficialGroups(payload.groups);
+   return json(res,200,{valid:true,report,activated:false,publicationLocked:true,message:'Roster structurally valid. NOT activated. Requires organizer confirmation and independent source verification.'});
+  }catch(e){return json(res,400,{valid:false,error:e.message,activated:false})}
+ }
+
  if(url.pathname==='/api/test-storage'&&req.method==='POST'){
   const path='/var/lib/jlt-race-control/storage-test.json';
   const record={kind:'STORAGE_TEST_ONLY',timestamp:new Date().toISOString()};
@@ -133,7 +147,7 @@ http.createServer(async(req,res)=>{try{
   if(typeof key!=='string'||!key||key.length>200)return json(res,400,{error:'Steward key required'});
   const response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+key},signal:AbortSignal.timeout(12000)});
   const data=await response.json();if(!response.ok||data.error||!data.race)return json(res,502,{error:'Torn API rejected race'});
-  let item;try{item=preview(data.race,group,slot)}catch(e){return json(res,400,{error:e.message})}
+  let item;try{validateImportSlot(groups,groupId,slot);item=preview(data.race,group,slot)}catch(e){return json(res,400,{error:e.message})}
   if(confirm===true){
    if(item.matched===0)return json(res,400,{error:'No matching racers; refusing import'});
    try{return json(res,200,{...saveImport({...item,savedAt:new Date().toISOString()}),preview:item})}catch(e){return json(res,409,{error:e.message})}
