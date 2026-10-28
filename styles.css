@@ -32,3 +32,5 @@
 .schedule-league .tablebox{margin:0;border:0;border-top:1px solid #424637}
 .schedule-league table{min-width:540px}
 @media(max-width:780px){.schedule-league>summary{padding:15px;gap:8px}.schedule-league>summary span:nth-child(2){font-size:12px}}
+
+.resource-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:20px 0}.resource-links a{padding:19px;background:#25271b;border:1px solid #8e800d;font-weight:800;letter-spacing:1px;text-align:center}.resource-links a:hover{background:#ffdc00;color:#111;text-decoration:none}
