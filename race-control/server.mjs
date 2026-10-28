@@ -1,3 +1,4 @@
+import {queue,review,publicationReadiness} from './approvals.mjs';
 import {listStewards,saveSteward,deleteSteward,resolveSteward} from './stewards.mjs';
 import {runScoringRehearsal} from './rehearsal.mjs';
 import {calculateStandings} from './standings.mjs';
@@ -86,6 +87,14 @@ http.createServer(async(req,res)=>{try{
   if(response.status!==204){console.error('GitHub dispatch HTTP status:',response.status);return json(res,502,{error:'GitHub rejected workflow dispatch (HTTP '+response.status+'). Check token permissions.'})}
   return json(res,202,{queued:true,mode:'test',message:'GitHub test publication workflow queued. No race data transferred.',actionsUrl:'https://github.com/JLT-Racing/jlt-racing-hub/actions/workflows/publish-results.yml'});
  }
+ if(url.pathname==='/api/review-queue'&&req.method==='GET')return json(res,200,{items:queue(),readiness:publicationReadiness()});
+ if(url.pathname==='/api/review'&&req.method==='POST'){
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1500)return json(res,413,{error:'Request too large'})}
+  let data;try{data=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  if(!Number.isSafeInteger(data.raceId)||data.raceId<=0)return json(res,400,{error:'Invalid race ID'});
+  try{return json(res,200,{review:review(data.raceId,data.decision),readiness:publicationReadiness()})}catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/publish-approved'&&req.method==='POST')return json(res,423,{error:'Publication locked: simulated rosters cannot be published. Review decisions remain private.',readiness:publicationReadiness()});
  if(url.pathname==='/api/publication-preview'&&req.method==='GET'){
   const imports=readImports();
   const races=imports.map(({raceId,groupId,slot,matched,registered,rows})=>({raceId,groupId,slot,matched,registered,rows}));
