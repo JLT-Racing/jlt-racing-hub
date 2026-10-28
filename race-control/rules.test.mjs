@@ -1,3 +1,4 @@
+import {rosterDigest,activateOfficialRoster} from './official-roster.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {preview} from './imports.mjs';
@@ -55,4 +56,16 @@ test('championship selection requires complete qualifying phase',()=>{
 test('multi-group championship selection requires both race-offs',()=>{
  const gs=[{id:'L1-A',league:1},{id:'L1-B',league:1}];
  assert.throws(()=>championshipQualifiers(gs,{},1),/Two verified pooled race-offs/);
+});
+
+test('official activation refuses missing confirmation and source',()=>{
+ const groups=[{id:'L0-A',league:0,official:true,drivers:[{id:100,name:'Test'}]}];
+ const expectedSha256=rosterDigest(groups);
+ assert.throws(()=>activateOfficialRoster({groups,source:'Organizer confirmed',confirmation:'NO',expectedSha256}),/confirmation required/);
+ assert.throws(()=>activateOfficialRoster({groups,source:'x',confirmation:'ACTIVATE VERIFIED JLT ROSTER',expectedSha256}),/source reference/);
+});
+test('official activation refuses changed checksum and existing imports',()=>{
+ const groups=[{id:'L0-A',league:0,official:true,drivers:[{id:100,name:'Test'}]}];
+ assert.throws(()=>activateOfficialRoster({groups,source:'Organizer confirmed',confirmation:'ACTIVATE VERIFIED JLT ROSTER',expectedSha256:'wrong'}),/checksum changed/);
+ assert.throws(()=>activateOfficialRoster({groups,source:'Organizer confirmed',confirmation:'ACTIVATE VERIFIED JLT ROSTER',expectedSha256:rosterDigest(groups)},[{raceId:1}]),/archived and cleared/);
 });
