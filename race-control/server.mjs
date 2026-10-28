@@ -38,6 +38,11 @@ http.createServer(async(req,res)=>{try{
    return json(res,200,{ok:true,record:{kind:saved.kind,raceId:saved.raceId,groupId:saved.groupId,rows:saved.rows.length},cleanedUp:true,realImports:readImports().length});
   }catch(e){try{unlinkSync(path)}catch{}console.error('Import E2E test failed:',e.message);return json(res,500,{error:'Import test failed: '+e.message})}
  }
+ if(url.pathname==='/api/publication-preview'&&req.method==='GET'){
+  const imports=readImports();
+  const races=imports.map(({raceId,groupId,slot,matched,registered,rows})=>({raceId,groupId,slot,matched,registered,rows}));
+  return json(res,200,{schema:1,mode:'test',generatedAt:new Date().toISOString(),description:'Private draft only. Contains simulated group assignments. NEVER publish as official.',races});
+ }
  if(url.pathname==='/api/imports'&&req.method==='GET')return json(res,200,{imports:readImports()});
  if(url.pathname==='/api/import'&&req.method==='POST'){
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)return json(res,413,{error:'Request too large'})}
