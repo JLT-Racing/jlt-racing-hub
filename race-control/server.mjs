@@ -1,3 +1,4 @@
+import {publicationAudit} from './publication-audit.mjs';
 import {proposedStageRoster} from './stage-proposals.mjs';
 import {stageDigest,confirmStageRoster,verifiedStageRoster,readStageRosters} from './stage-rosters.mjs';
 import {previewTournamentStages} from './tournament-stages.mjs';
@@ -88,6 +89,12 @@ http.createServer(async(req,res)=>{try{
    const result=activateOfficialRoster(payload,readImports());
    return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
   }catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/official-publication-preview'&&req.method==='GET'){
+  const root=loadOfficialRoster();
+  if(!root)return json(res,423,{ready:false,publicationLocked:true,blockers:['Official organizer roster not activated'],preview:null});
+  try{return json(res,200,publicationAudit(root.groups,readOfficialImports(),approvedOfficialImports(root.sha256),readStageRosters(),root.sha256))}
+  catch(e){return json(res,422,{ready:false,publicationLocked:true,blockers:[e.message],preview:null})}
  }
  if(url.pathname==='/api/stage-roster-proposal'&&req.method==='GET'){
   const root=loadOfficialRoster();if(!root)return json(res,423,{error:'Official roster not active'});
