@@ -1,4 +1,4 @@
-// Conservative JLT scorer. Crashes rank behind finishers, using Torn's positions among crashes.
+// Conservative JLT scorer. Crashes rank behind finishers; multiple crashes require completion percentages.
 // This module does not save, approve or publish anything.
 const id=x=>String(x);
 export function scoreOfficialRace(race,group,slot){
@@ -19,7 +19,14 @@ export function scoreOfficialRace(race,group,slot){
   if(registered.has(id(r.driver_id)))entries.push(r);
  }
  const finishers=entries.filter(r=>!r.has_crashed).sort((a,b)=>a.position-b.position);
- const crashes=entries.filter(r=>r.has_crashed).sort((a,b)=>a.position-b.position);
+ const crashes=entries.filter(r=>r.has_crashed);
+ if(crashes.length>1){
+  for(const r of crashes){
+   if(typeof r.completion_percentage!=='number'||!Number.isFinite(r.completion_percentage)||r.completion_percentage<0||r.completion_percentage>100)throw Error('Multiple crashes require valid completion percentages for steward verification');
+  }
+  crashes.sort((a,b)=>b.completion_percentage-a.completion_percentage);
+  if(crashes.some((r,i)=>i>0&&r.completion_percentage===crashes[i-1].completion_percentage))throw Error('Equal crash completion percentages require steward resolution');
+ }
  const ranked=[...finishers,...crashes];
  const points=new Map(ranked.map((r,i)=>[id(r.driver_id),roster.length-i]));
  const results=new Map(entries.map(r=>[id(r.driver_id),r]));
