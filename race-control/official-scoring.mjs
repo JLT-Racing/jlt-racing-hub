@@ -1,4 +1,4 @@
-// Conservative JLT scorer. A crash must have explicit completion percentage.
+// Conservative JLT scorer. Crashes rank behind finishers, using Torn's positions among crashes.
 // This module does not save, approve or publish anything.
 const id=x=>String(x);
 export function scoreOfficialRace(race,group,slot){
@@ -19,14 +19,7 @@ export function scoreOfficialRace(race,group,slot){
   if(registered.has(id(r.driver_id)))entries.push(r);
  }
  const finishers=entries.filter(r=>!r.has_crashed).sort((a,b)=>a.position-b.position);
- const crashes=entries.filter(r=>r.has_crashed);
- if(crashes.length){
-  for(const r of crashes){
-   if(typeof r.completion_percentage!=='number'||!Number.isFinite(r.completion_percentage)||r.completion_percentage<0||r.completion_percentage>100)throw Error('Crash completion percentage missing or invalid; manual verification required');
-  }
-  crashes.sort((a,b)=>b.completion_percentage-a.completion_percentage||a.position-b.position);
-  if(crashes.some((r,i)=>i&&r.completion_percentage===crashes[i-1].completion_percentage))throw Error('Tied crash completion percentage requires steward resolution');
- }
+ const crashes=entries.filter(r=>r.has_crashed).sort((a,b)=>a.position-b.position);
  const ranked=[...finishers,...crashes];
  const points=new Map(ranked.map((r,i)=>[id(r.driver_id),roster.length-i]));
  const results=new Map(entries.map(r=>[id(r.driver_id),r]));
