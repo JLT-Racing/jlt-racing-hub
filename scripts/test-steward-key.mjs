@@ -10,3 +10,5 @@ const preview=races.slice(0,15).map(r=>({id:r.id??r.race_id??null,track:r.track?
 mkdirSync('data/tests',{recursive:true});
 writeFileSync('data/tests/race-history-check.json',JSON.stringify({testedAt:new Date().toISOString(),endpoint,raceCount:races.length,preview,success:true},null,2)+'\n');
 console.log('Race history fetched. Entries:',races.length);
+console.log('Recent race metadata (no API key):',JSON.stringify(preview.slice(0,5)));
+console.log('Top-level response fields:',Object.keys(body));
