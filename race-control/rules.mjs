@@ -43,3 +43,29 @@ export function raceoffRoster(groups,standingsByGroup,league){
  }
  return {id:'L'+league+'-RACEOFF',league,official:false,simulated:false,pendingStewardVerification:true,drivers};
 }
+
+export function allowedSlots(groups,groupId){
+ const group=groups.find(g=>g.id===groupId);
+ if(!group)throw Error('Unknown group');
+ const format=qualificationFormat(groups,group.league);
+ return Array.from({length:format.regularRaces},(_,i)=>'Qualification '+(i+1));
+}
+export function validateImportSlot(groups,groupId,slot){
+ const allowed=allowedSlots(groups,groupId);
+ if(!allowed.includes(slot))throw Error('Slot '+slot+' is not a regular qualification race for '+groupId+'; race-offs and championship require separately verified pooled rosters');
+ return {groupId,slot,stage:'qualification'};
+}
+export function championshipQualifiers(groups,standingsByGroup,league){
+ const selected=groups.filter(g=>g.league===league);
+ if(!selected.length)throw Error('League not found');
+ if(selected.length===1){
+  const g=selected[0],s=standingsByGroup[g.id];
+  if(!s||s.stage!=='qualification'||s.importedRaces!==6)throw Error('Six qualification races required');
+  if(s.standings.length<3||s.standings[3]?.rank===s.standings[2]?.rank)throw Error('Unresolved podium qualification tie');
+  return {league,source:'qualification',drivers:s.standings.slice(0,3).map(r=>({id:r.driverId,name:r.name}))};
+ }
+ const key='L'+league+'-RACEOFF',s=standingsByGroup[key];
+ if(!s||s.stage!=='raceoff'||s.importedRaces!==2)throw Error('Two verified pooled race-offs required');
+ if(s.standings.length<3||s.standings[3]?.rank===s.standings[2]?.rank)throw Error('Unresolved race-off qualification tie');
+ return {league,source:'raceoff',drivers:s.standings.slice(0,3).map(r=>({id:r.driverId,name:r.name}))};
+}
