@@ -1,3 +1,4 @@
+import {scoreOfficialRace} from './official-scoring.mjs';
 import {loadOfficialRoster,activateOfficialRoster,rosterDigest} from './official-roster.mjs';
 import {validateOfficialGroups,qualificationFormat,validateImportSlot,championshipQualifiers,raceoffRoster} from './rules.mjs';
 import {cleanupPreview,archiveTestData} from './cleanup.mjs';
@@ -80,6 +81,24 @@ http.createServer(async(req,res)=>{try{
    const result=activateOfficialRoster(payload,readImports());
    return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
   }catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/official-preview'&&req.method==='POST'){
+  if(!loadOfficialRoster())return json(res,423,{error:'Official roster not activated'});
+  const origin=req.headers.origin;
+  if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid request origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000)return json(res,413,{error:'Request too large'})}
+  let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  const {raceId,groupId,slot}=payload;
+  if(!Number.isSafeInteger(raceId)||raceId<=0)return json(res,400,{error:'Invalid race ID'});
+  const group=groups.find(g=>g.id===groupId);
+  if(!group)return json(res,400,{error:'Unknown official group'});
+  try{validateImportSlot(groups,groupId,slot)}catch(e){return json(res,400,{error:e.message})}
+  let assigned;try{assigned=resolveSteward(groupId,groups)}catch(e){return json(res,400,{error:e.message})}
+  let data,response;
+  try{response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+assigned.key},signal:AbortSignal.timeout(12000)});data=await response.json()}catch(e){return json(res,502,{error:'Unable to fetch race from Torn'})}
+  if(!response.ok||data.error||!data.race)return json(res,502,{error:'Torn API rejected race'});
+  try{return json(res,200,{preview:scoreOfficialRace(data.race,group,slot),saved:false,approved:false,published:false})}
+  catch(e){return json(res,422,{error:e.message,saved:false})}
  }
  if(url.pathname==='/api/test-storage'&&req.method==='POST'){
   const path='/var/lib/jlt-race-control/storage-test.json';
