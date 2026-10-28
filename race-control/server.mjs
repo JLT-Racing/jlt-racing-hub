@@ -1,3 +1,4 @@
+import {listStewards,saveSteward,deleteSteward,resolveSteward} from './stewards.mjs';
 import {runScoringRehearsal} from './rehearsal.mjs';
 import {calculateStandings} from './standings.mjs';
 import {writeFileSync,readFileSync as readStorageFile,unlinkSync} from 'node:fs';
@@ -20,6 +21,16 @@ http.createServer(async(req,res)=>{try{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname==='/'){res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(html);return}
  if(!url.pathname.startsWith('/api/'))return json(res,404,{error:'Not found'});
+ if(url.pathname==='/api/stewards'&&req.method==='GET')return json(res,200,{stewards:listStewards()});
+ if(url.pathname==='/api/stewards'&&req.method==='POST'){
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4000)return json(res,413,{error:'Request too large'})}
+  let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  try{return json(res,200,{steward:saveSteward(payload,groups)})}catch(e){return json(res,400,{error:e.message})}
+ }
+ if(url.pathname==='/api/stewards/delete'&&req.method==='POST'){
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return json(res,413,{error:'Request too large'})}
+  try{const {id}=JSON.parse(raw);deleteSteward(id);return json(res,200,{deleted:true})}catch(e){return json(res,400,{error:e.message})}
+ }
  if(url.pathname==='/api/groups')return json(res,200,{groups,simulation:true});
  if(url.pathname==='/api/test-storage'&&req.method==='POST'){
   const path='/var/lib/jlt-race-control/storage-test.json';
