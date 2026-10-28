@@ -124,7 +124,15 @@ http.createServer(async(req,res)=>{try{
   let data,response;
   try{response=await fetch('https://api.torn.com/v2/racing/'+raceId+'/race',{headers:{Authorization:'ApiKey '+assigned.key},signal:AbortSignal.timeout(12000)});data=await response.json()}catch(e){return json(res,502,{error:'Unable to fetch race from Torn'})}
   if(!response.ok||data.error||!data.race)return json(res,502,{error:'Torn API rejected race'});
-  try{return json(res,200,{preview:scoreOfficialRace(data.race,group,slot),saved:false,approved:false,published:false})}
+  try{
+   if(Number(data.race.id)!==raceId)throw Error('Torn returned a different race ID');
+   const item=scoreOfficialRace(data.race,group,slot);
+   if(payload.confirm==='SAVE VERIFIED PRIVATE IMPORT'){
+    if(item.matched<1)throw Error('No eligible racers in race');
+    return json(res,200,{...saveOfficialImport(item,loadOfficialRoster().sha256),preview:item,approved:false,published:false});
+   }
+   return json(res,200,{preview:item,saved:false,approved:false,published:false});
+  }
   catch(e){return json(res,422,{error:e.message,saved:false})}
  }
  if(url.pathname==='/api/test-storage'&&req.method==='POST'){
