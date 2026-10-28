@@ -1,3 +1,4 @@
+import {calculateStandings} from './standings.mjs';
 import {writeFileSync,readFileSync as readStorageFile,unlinkSync} from 'node:fs';
 import {preview,saveImport,readImports} from './imports.mjs';
 import { readFileSync } from 'node:fs';
@@ -56,6 +57,13 @@ http.createServer(async(req,res)=>{try{
   const imports=readImports();
   const races=imports.map(({raceId,groupId,slot,matched,registered,rows})=>({raceId,groupId,slot,matched,registered,rows}));
   return json(res,200,{schema:1,mode:'test',generatedAt:new Date().toISOString(),description:'Private draft only. Contains simulated group assignments. NEVER publish as official.',races});
+ }
+ if(url.pathname==='/api/standings'&&req.method==='GET'){
+  const group=groups.find(g=>g.id===url.searchParams.get('group'));
+  if(!group)return json(res,400,{error:'Select a valid group'});
+  const stage=url.searchParams.get('stage')||'qualification';
+  try{return json(res,200,calculateStandings(group,readImports(),stage))}
+  catch(e){return json(res,400,{error:e.message})}
  }
  if(url.pathname==='/api/imports'&&req.method==='GET')return json(res,200,{imports:readImports()});
  if(url.pathname==='/api/import'&&req.method==='POST'){
