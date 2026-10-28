@@ -19,3 +19,16 @@
 #league-group-go{display:block;width:100%;margin-top:15px;padding:22px;text-align:center;background:var(--gold);color:#101010;font-size:24px}
 #league-group-go:disabled{opacity:.35;cursor:not-allowed}
 @media(max-width:780px){.header-links{justify-content:flex-start;gap:10px 16px}.header-links a{font-size:12px}.league-picker{padding:18px}.huge-group-select{font-size:25px}}
+
+/* Compact expandable per-league schedule */
+.schedule-league{border:1px solid #4b4f42;background:#171b19;margin:10px 0}
+.schedule-league[open]{border-color:var(--gold)}
+.schedule-league>summary{cursor:pointer;display:flex;align-items:center;gap:16px;justify-content:space-between;padding:19px 22px;list-style:none;font:800 19px Rajdhani;color:#eee}
+.schedule-league>summary::-webkit-details-marker{display:none}
+.schedule-league>summary span:first-child{font:italic 900 26px 'Barlow Condensed';color:var(--gold)}
+.schedule-league>summary span:nth-child(2){margin-left:auto;color:#c7c8bf;font-size:15px}
+.schedule-chevron{font-size:25px;transition:transform .15s}
+.schedule-league[open] .schedule-chevron{transform:rotate(180deg)}
+.schedule-league .tablebox{margin:0;border:0;border-top:1px solid #424637}
+.schedule-league table{min-width:540px}
+@media(max-width:780px){.schedule-league>summary{padding:15px;gap:8px}.schedule-league>summary span:nth-child(2){font-size:12px}}
