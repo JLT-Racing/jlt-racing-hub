@@ -1,3 +1,4 @@
+import {runOfficialWorkflowRehearsal} from './official-workflow-rehearsal.mjs';
 import {readOfficialImports,saveOfficialImport} from './official-imports.mjs';
 import {officialReviewQueue,reviewOfficialRace,approvedOfficialImports} from './official-approvals.mjs';
 import {scoreOfficialRace} from './official-scoring.mjs';
@@ -189,6 +190,10 @@ http.createServer(async(req,res)=>{try{
   const imports=readImports();
   const races=imports.map(({raceId,groupId,slot,matched,registered,rows})=>({raceId,groupId,slot,matched,registered,rows}));
   return json(res,200,{schema:1,mode:'test',generatedAt:new Date().toISOString(),description:'Private draft only. Contains simulated group assignments. NEVER publish as official.',races});
+ }
+ if(url.pathname==='/api/test-official-workflow'&&req.method==='POST'){
+  try{const result=await runOfficialWorkflowRehearsal();return json(res,result.passed?200:500,result)}
+  catch(e){console.error('Official workflow rehearsal failed:',e.message);return json(res,500,{passed:false,error:'Official rehearsal failed: '+e.message,publicationLocked:true})}
  }
  if(url.pathname==='/api/test-scoring'&&req.method==='POST'){
   const result=runScoringRehearsal();
