@@ -1,4 +1,4 @@
-import {writeFileSync,readFileSync as readStorageFile} from 'node:fs';
+import {writeFileSync,readFileSync as readStorageFile,unlinkSync} from 'node:fs';
 import {preview,saveImport,readImports} from './imports.mjs';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
@@ -24,6 +24,19 @@ http.createServer(async(req,res)=>{try{
   const record={kind:'STORAGE_TEST_ONLY',timestamp:new Date().toISOString()};
   try{writeFileSync(path,JSON.stringify(record),{mode:0o600});const check=JSON.parse(readStorageFile(path,'utf8'));if(check.kind!==record.kind||check.timestamp!==record.timestamp)throw Error('Read-back mismatch');return json(res,200,{ok:true,test:check})}
   catch(e){console.error('Storage test failed:',e.message);return json(res,500,{error:'Storage test failed; check service permissions'})}
+ }
+ if(url.pathname==='/api/test-import'&&req.method==='POST'){
+  // Isolated end-to-end test: write, read back, and remove a disposable import record.
+  // Does not touch imports.json or any tournament results.
+  const path='/var/lib/jlt-race-control/import-e2e-test.json';
+  const record={kind:'JLT_DISPOSABLE_IMPORT_TEST',raceId:999999999,groupId:'TEST-ONLY',slot:'Test race',rows:[{driverId:123456,points:10}],createdAt:new Date().toISOString()};
+  try{
+   writeFileSync(path,JSON.stringify(record),{mode:0o600,flag:'wx'});
+   const saved=JSON.parse(readStorageFile(path,'utf8'));
+   if(JSON.stringify(saved)!==JSON.stringify(record))throw Error('Read-back mismatch');
+   unlinkSync(path);
+   return json(res,200,{ok:true,record:{kind:saved.kind,raceId:saved.raceId,groupId:saved.groupId,rows:saved.rows.length},cleanedUp:true,realImports:readImports().length});
+  }catch(e){try{unlinkSync(path)}catch{}console.error('Import E2E test failed:',e.message);return json(res,500,{error:'Import test failed: '+e.message})}
  }
  if(url.pathname==='/api/imports'&&req.method==='GET')return json(res,200,{imports:readImports()});
  if(url.pathname==='/api/import'&&req.method==='POST'){
