@@ -18,7 +18,7 @@ test('tiebreak order: entered, crashes, cumulative time',()=>{
  const races=[imp(11,'Qualification 1',[row(1,3),row(2,3),row(3,3),row(4,3)]),imp(12,'Qualification 2',[row(1,0,false,false,null),row(2,0,false,false,null),row(3,0,false,false,null),row(4,0,false,false,null)])];
  const base=calculateStandings(group,races).standings;
  assert.equal(base.length,4);
- const changed=[imp(11,'Qualification 1',[row(1,3,true,false,20),row(2,3,true,true,5),row(3,3,true,false,10),row(4,3,false,false,null)]),imp(12,'Qualification 2',[row(1,0,false,false,null),row(2,0,false,false,null),row(3,0,false,false,null),row(4,3,true,false,3)])];
+ const changed=[imp(11,'Qualification 1',[row(1,3,true,false,20),row(2,3,true,true,5),row(3,3,true,false,10),row(4,3,false,false,null)]),imp(12,'Qualification 2',[row(1,0,false,false,null),row(2,0,false,false,null),row(3,0,false,false,null),row(4,0,true,false,3)])];
  const ranked=calculateStandings(group,changed).standings;
  assert.deepEqual(ranked.map(r=>r.driverId),[3,1,2,4]);
 });
