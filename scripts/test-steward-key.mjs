@@ -1,0 +1,12 @@
+import {writeFileSync,mkdirSync} from 'node:fs';
+const key=process.env.JLT_TEST_KEY;
+if(!key)throw Error('JLT_TEST_KEY is missing; check repository Actions secrets');
+const endpoint='https://api.torn.com/v2/user/races';
+const response=await fetch(endpoint,{headers:{Authorization:'ApiKey '+key,Accept:'application/json'}});
+const body=await response.json();
+if(!response.ok||body.error)throw Error('Torn racing-history request failed: HTTP '+response.status+'; verify key permissions and API route');
+const races=Array.isArray(body.races)?body.races:Array.isArray(body)?body:[];
+const preview=races.slice(0,15).map(r=>({id:r.id??r.race_id??null,track:r.track??null,start:r.start??r.start_time??null,status:r.status??null}));
+mkdirSync('data/tests',{recursive:true});
+writeFileSync('data/tests/race-history-check.json',JSON.stringify({testedAt:new Date().toISOString(),endpoint,raceCount:races.length,preview,success:true},null,2)+'\n');
+console.log('Race history fetched. Entries:',races.length);
