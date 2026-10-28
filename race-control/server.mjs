@@ -98,7 +98,7 @@ http.createServer(async(req,res)=>{try{
   const group=groups.find(g=>g.id===url.searchParams.get('group'));
   if(!group)return json(res,400,{error:'Unknown group'});
   try{
-   const imports=approvedOfficialImports(roster.sha256).map(x=>({...x,simulated:true}));
+   const imports=approvedOfficialImports(roster.sha256);
    const result=calculateStandings({...group,simulated:false},imports,'qualification');
    return json(res,200,{...result,simulation:false,approvedOnly:true,publicationLocked:true});
   }catch(e){return json(res,422,{error:e.message})}
