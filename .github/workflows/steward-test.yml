@@ -1,0 +1,10 @@
+name: Steward history test
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/test-steward-key.mjs
+        env:
+          JLT_TEST_KEY: ${{ secrets.JLT_TEST_KEY }}
