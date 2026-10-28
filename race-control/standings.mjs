@@ -17,7 +17,7 @@ export function calculateStandings(group,imports,stage='qualification'){
  for(const race of relevant){
   if(slots.has(race.slot)||raceIds.has(key(race.raceId)))throw Error('Duplicate imported race or slot');
   slots.add(race.slot);raceIds.add(key(race.raceId));
-  if(race.simulated!==true||race.registered!==roster.length)throw Error('Roster snapshot mismatch');
+  if(race.simulated!==(group.simulated===true)||race.registered!==roster.length)throw Error('Roster snapshot mismatch');
   const rowIds=new Set();
   for(const row of race.rows){
    const id=key(row.driverId);
