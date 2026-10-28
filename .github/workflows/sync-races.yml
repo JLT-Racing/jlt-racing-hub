@@ -1,0 +1,33 @@
+name: Import approved Torn races
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */3 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: jlt-race-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Import race data server-side
+        env:
+          TORN_API_KEY: ${{ secrets.TORN_API_KEY }}
+        run: node scripts/race-import.mjs
+      - name: Commit public race results only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/race-api-raw/
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Torn race data"
+            git push
+          fi
