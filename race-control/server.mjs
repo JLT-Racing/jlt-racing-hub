@@ -1,3 +1,4 @@
+import {previewAdvancement} from './advancement.mjs';
 import {runOfficialWorkflowRehearsal} from './official-workflow-rehearsal.mjs';
 import {readOfficialImports,saveOfficialImport} from './official-imports.mjs';
 import {officialReviewQueue,reviewOfficialRace,approvedOfficialImports} from './official-approvals.mjs';
@@ -84,6 +85,13 @@ http.createServer(async(req,res)=>{try{
    const result=activateOfficialRoster(payload,readImports());
    return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
   }catch(e){return json(res,409,{error:e.message})}
+ }
+ if(url.pathname==='/api/advancement-preview'&&req.method==='GET'){
+  const roster=loadOfficialRoster();if(!roster)return json(res,423,{error:'Official roster not activated'});
+  const league=Number(url.searchParams.get('league'));
+  if(!Number.isInteger(league)||league<0||league>6)return json(res,400,{error:'Select a league 0–6'});
+  try{return json(res,200,previewAdvancement(groups,approvedOfficialImports(roster.sha256),league))}
+  catch(e){return json(res,422,{error:e.message,publicationLocked:true})}
  }
  if(url.pathname==='/api/official-imports'&&req.method==='GET'){
   const roster=loadOfficialRoster();
