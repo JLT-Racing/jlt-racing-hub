@@ -1,3 +1,4 @@
+import {loadOfficialRoster,activateOfficialRoster,rosterDigest} from './official-roster.mjs';
 import {validateOfficialGroups,qualificationFormat,validateImportSlot,championshipQualifiers,raceoffRoster} from './rules.mjs';
 import {cleanupPreview,archiveTestData} from './cleanup.mjs';
 import {queue,review,publicationReadiness} from './approvals.mjs';
@@ -14,7 +15,8 @@ const PASSWORD=process.env.JLT_ADMIN_PASSWORD;
 if(!PASSWORD||PASSWORD.length<16)throw Error('Set JLT_ADMIN_PASSWORD (at least 16 characters)');
 const equal=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&timingSafeEqual(x,y)};
 const html = readFileSync(new URL('./dashboard.html', import.meta.url), 'utf8');
-const groups = JSON.parse(readFileSync(new URL('../data/simulated-groups.json', import.meta.url), 'utf8')).groups;
+const simulatedGroups = JSON.parse(readFileSync(new URL('../data/simulated-groups.json', import.meta.url), 'utf8')).groups;
+const groups = loadOfficialRoster()?.groups || simulatedGroups;
 function json(res,status,body){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(body))}
 http.createServer(async(req,res)=>{try{
  const auth=req.headers.authorization||'';
@@ -55,20 +57,30 @@ http.createServer(async(req,res)=>{try{
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return json(res,413,{error:'Request too large'})}
   try{const {id}=JSON.parse(raw);deleteSteward(id);return json(res,200,{deleted:true})}catch(e){return json(res,400,{error:e.message})}
  }
- if(url.pathname==='/api/groups')return json(res,200,{groups,simulation:true});
+ if(url.pathname==='/api/groups')return json(res,200,{groups,simulation:!loadOfficialRoster(),officialRoster:loadOfficialRoster()?{source:loadOfficialRoster().source,activatedAt:loadOfficialRoster().activatedAt,sha256:loadOfficialRoster().sha256}:null});
  if(url.pathname==='/api/official-readiness'&&req.method==='GET'){
   const leagues=[...new Set(groups.map(g=>g.league))].sort((a,b)=>a-b);
-  return json(res,200,{mode:'simulation',publicationLocked:true,officialRostersLoaded:false,leagues:leagues.map(league=>({league,groupCount:groups.filter(g=>g.league===league).length,format:qualificationFormat(groups,league)})),message:'Official roster activation requires organizer-verified assignments. Simulated group assignments cannot be promoted.'});
+  return json(res,200,{mode:loadOfficialRoster()?'official-roster':'simulation',publicationLocked:true,officialRostersLoaded:!!loadOfficialRoster(),leagues:leagues.map(league=>({league,groupCount:groups.filter(g=>g.league===league).length,format:qualificationFormat(groups,league)})),message:loadOfficialRoster()?'Verified roster active. Race importing and publication remain locked until official scoring workflow is certified.':'Official roster activation requires organizer-verified assignments. Simulated group assignments cannot be promoted.'});
  }
  if(url.pathname==='/api/validate-roster'&&req.method==='POST'){
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000000)return json(res,413,{error:'Roster too large'})}
   let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
   try{
    const report=validateOfficialGroups(payload.groups);
-   return json(res,200,{valid:true,report,activated:false,publicationLocked:true,message:'Roster structurally valid. NOT activated. Requires organizer confirmation and independent source verification.'});
+   return json(res,200,{valid:true,report,sha256:rosterDigest(payload.groups),activated:false,publicationLocked:true,message:'Roster structurally valid. NOT activated. Requires organizer confirmation and independent source verification.'});
   }catch(e){return json(res,400,{valid:false,error:e.message,activated:false})}
  }
 
+ if(url.pathname==='/api/activate-roster'&&req.method==='POST'){
+  const origin=req.headers.origin;
+  if(origin&&origin!=='http://127.0.0.1:'+PORT&&origin!=='http://localhost:'+PORT)return json(res,403,{error:'Invalid request origin'});
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000000)return json(res,413,{error:'Roster too large'})}
+  let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:'Invalid JSON'})}
+  try{
+   const result=activateOfficialRoster(payload,readImports());
+   return json(res,200,{...result,restartRequired:true,message:'Roster saved. Restart Race Control to load it. Publishing and official imports remain locked.'});
+  }catch(e){return json(res,409,{error:e.message})}
+ }
  if(url.pathname==='/api/test-storage'&&req.method==='POST'){
   const path='/var/lib/jlt-race-control/storage-test.json';
   const record={kind:'STORAGE_TEST_ONLY',timestamp:new Date().toISOString()};
@@ -142,6 +154,7 @@ http.createServer(async(req,res)=>{try{
   const {raceId,groupId,slot,confirm}=payload||{};
   if(!Number.isSafeInteger(raceId)||raceId<=0)return json(res,400,{error:'Invalid race ID'});
   const group=groups.find(g=>g.id===groupId);if(!group)return json(res,400,{error:'Unknown group'});
+  if(loadOfficialRoster())return json(res,423,{error:'Official roster is active, but official race imports are locked until the scorer and approval workflow are certified.'});
   let key=req.headers['x-torn-key'];
   if(payload.useSavedKey===true){try{key=resolveSteward(groupId,groups).key}catch(e){return json(res,400,{error:e.message})}}
   if(typeof key!=='string'||!key||key.length>200)return json(res,400,{error:'Steward key required'});
