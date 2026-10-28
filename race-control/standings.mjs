@@ -4,7 +4,7 @@ const key=x=>String(x);
 export function stageOf(slot){
  if(/^Qualification [1-6]$/.test(slot))return 'qualification';
  if(/^Race-off [12]$/.test(slot))return 'raceoff';
- if(slot==='Championship')return 'championship';
+ if(/^Championship [1-7]$/.test(slot)||slot==='Championship')return 'championship';
  throw Error('Unknown race slot: '+slot);
 }
 export function calculateStandings(group,imports,stage='qualification'){
